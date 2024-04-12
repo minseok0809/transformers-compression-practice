@@ -7,7 +7,8 @@ import math
 from torch.nn import Parameter
 import torch.nn.functional as F
 import numpy as np
-
+from torch.nn import MSELoss
+loss_mse = MSELoss()
 
 class BinaryQuantizer(torch.autograd.Function):
     @staticmethod
@@ -224,6 +225,7 @@ class QuantizeLinear(nn.Linear):
             binary_weights_no_grad = scaling_factor * torch.sign(real_weights)
             cliped_weights = torch.clamp(real_weights, -1.0, 1.0)
             weight = binary_weights_no_grad.detach() - cliped_weights.detach() + cliped_weights
+
         else:
             weight = self.weight_quantizer.apply(self.weight, self.weight_clip_val, self.weight_bits, True)
 
@@ -264,6 +266,7 @@ class QuantizeEmbedding(nn.Embedding):
             binary_weights_no_grad = scaling_factor * torch.sign(real_weights)
             cliped_weights = torch.clamp(real_weights, -1.0, 1.0)
             weight = binary_weights_no_grad.detach() - cliped_weights.detach() + cliped_weights
+            
         else:
             weight = self.weight_quantizer.apply(self.weight, self.weight_clip_val, self.weight_bits, self.layerwise)
         out = nn.functional.embedding(

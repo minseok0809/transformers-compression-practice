@@ -302,14 +302,14 @@ class BertPreTrainedModel(nn.Module):
                                        CONFIG_NAME)
             config = BertConfig.from_json_file(config_file)
 
-        logger.info("Model config {}".format(config))
+        # logger.info("Model config {}".format(config))
         # Instantiate model.
 
         model = cls(config, *inputs, **kwargs)
         if state_dict is None:
             weights_path = os.path.join(pretrained_model_name_or_path,
                                         WEIGHTS_NAME)
-            logger.info("Loading model {}".format(weights_path))
+            # logger.info("Loading model {}".format(weights_path))
             state_dict = torch.load(weights_path, map_location='cpu')
 
         # Load from a PyTorch state_dict
@@ -351,22 +351,24 @@ class BertPreTrainedModel(nn.Module):
                 s.startswith('bert.') for s in state_dict.keys()):
             start_prefix = 'bert.'
 
-        logger.info('loading model...')
+        # logger.info('loading model...')
         load(model, prefix=start_prefix)
-        logger.info('done!')
+
+        """
+        # logger.info('done!')
         if len(missing_keys) > 0:
-            logger.info(
+            # logger.info(
                 "Weights of {} not initialized from pretrained model: {}".
                 format(model.__class__.__name__, missing_keys))
         if len(unexpected_keys) > 0:
-            logger.info(
+            # logger.info(
                 "Weights from pretrained model not used in {}: {}".format(
                     model.__class__.__name__, unexpected_keys))
         if len(error_msgs) > 0:
             raise RuntimeError(
                 'Error(s) in loading state_dict for {}:\n\t{}'.format(
                     model.__class__.__name__, "\n\t".join(error_msgs)))
-
+        """
         return model
 
 

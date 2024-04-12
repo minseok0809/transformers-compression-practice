@@ -33,6 +33,7 @@ import os
 
 import torch
 from torch import nn
+import torch.nn.functional as F
 from torch.autograd import Variable
 from .configuration import BertConfig
 from .utils_quant import QuantizeEmbedding, SymQuantizer, BinaryQuantizer, ZMeanBinaryQuantizer, QuantizeLinear
@@ -170,7 +171,7 @@ class BertSelfAttention(nn.Module):
 
         value_scores = torch.matmul(value_layer, value_layer.transpose(-1, -2))
         value_scores = value_scores / math.sqrt(self.attention_head_size)
-
+            
         if self.quantize_act: 
             if self.input_bits == 1:
                 attention_probs = ZMeanBinaryQuantizer.apply(attention_probs)
@@ -184,6 +185,7 @@ class BertSelfAttention(nn.Module):
         return context_layer, attention_scores, value_scores, 0, query_scores, key_scores
 
 
+
 class BertAttention(nn.Module):
     def __init__(self, config):
         super(BertAttention, self).__init__()
@@ -192,12 +194,11 @@ class BertAttention(nn.Module):
 
     def forward(self, input_tensor, attention_mask, layer_num=0):
         self_output, layer_att, value_att, context_score, query_scores, key_scores = self.self(
-            input_tensor, attention_mask, layer_num=layer_num)
+             input_tensor, attention_mask, layer_num=layer_num)
         attention_output = self.output(self_output,
                                        input_tensor,
                                        layer_num=layer_num)
         return attention_output, layer_att, value_att, context_score, query_scores, key_scores
-
 
 class BertSelfOutput(nn.Module):
     def __init__(self, config):
@@ -211,7 +212,7 @@ class BertSelfOutput(nn.Module):
         self.register_parameter('gate', Parameter(torch.ones(1).squeeze()))
 
     def forward(self, hidden_states, input_tensor, layer_num=0):
-        hidden_states = self.dense(hidden_states,
+        hidden_states = self.dense(hidden_states, 
                                    type="layer" + str(layer_num) + "_dense")
         hidden_states = self.dropout(hidden_states)
         hidden_states = self.LayerNorm(hidden_states + input_tensor)
@@ -244,7 +245,7 @@ class BertOutput(nn.Module):
         self.register_parameter('gate', Parameter(torch.ones(1).squeeze()))
 
     def forward(self, hidden_states, input_tensor, layer_num=0):
-        hidden_states = self.dense(hidden_states,
+        hidden_states = self.dense(hidden_states, 
                                    type="layer" + str(layer_num) + "_dense")
         hidden_states = self.dropout(hidden_states)
         hidden_states = self.LayerNorm(hidden_states + input_tensor)
@@ -260,7 +261,7 @@ class BertLayer(nn.Module):
 
     def forward(self, hidden_states, attention_mask, layer_num=0):
         attention_output, layer_att, value_att, context_score, query_score, key_score = self.attention(
-            hidden_states, attention_mask, layer_num=layer_num)
+             hidden_states, attention_mask, layer_num=layer_num)
         intermediate_output = self.intermediate(attention_output,
                                                 layer_num=layer_num)
         layer_output = self.output(intermediate_output,
@@ -285,16 +286,17 @@ class BertEncoder(nn.Module):
         all_key_scores = []
 
         for _, layer_module in enumerate(self.layer):
-            hidden_states, layer_att, value_att, context_score, query_score, key_score = layer_module(
-                hidden_states, attention_mask, layer_num=_)
+            hidden_states, layer_att, value_att, context_score, query_score, key_score = layer_module( 
+                 hidden_states, attention_mask, layer_num=_)
             all_encoder_layers.append(hidden_states)
             all_encoder_atts.append(layer_att)
             all_value_atts.append(value_att)
             all_context_scores.append(context_score)
             all_query_scores.append(query_score)
             all_key_scores.append(key_score)
-
+        
         return all_encoder_layers, all_encoder_atts, all_value_atts, all_context_scores, all_query_scores, all_key_scores
+
 
 
 class BertPooler(nn.Module):
@@ -360,14 +362,14 @@ class BertPreTrainedModel(nn.Module):
                                        CONFIG_NAME)
             config = BertConfig.from_json_file(config_file)
 
-        logger.info("Model config {}".format(config))
+        # logger.info("Model config {}".format(config))
         # Instantiate model.
 
         model = cls(config, *inputs, **kwargs)
         if state_dict is None:
             weights_path = os.path.join(pretrained_model_name_or_path,
                                         WEIGHTS_NAME)
-            logger.info("Loading model {}".format(weights_path))
+            # logger.info("Loading model {}".format(weights_path))
             state_dict = torch.load(weights_path, map_location='cpu')
 
         # Load from a PyTorch state_dict
@@ -408,22 +410,24 @@ class BertPreTrainedModel(nn.Module):
                 s.startswith('bert.') for s in state_dict.keys()):
             start_prefix = 'bert.'
 
-        logger.info('loading model...')
+        # logger.info('loading model...')
         load(model, prefix=start_prefix)
-        # logger.info('done!')
-        # if len(missing_keys) > 0:
-        #     logger.info(
-        #         "Weights of {} not initialized from pretrained model: {}".
-        #         format(model.__class__.__name__, missing_keys))
-        # if len(unexpected_keys) > 0:
-        #     logger.info(
-        #        "Weights from pretrained model not used in {}: {}".format(
-        #             model.__class__.__name__, unexpected_keys))
-        # if len(error_msgs) > 0:
-        #     raise RuntimeError(
-        #         'Error(s) in loading state_dict for {}:\n\t{}'.format(
-        #            model.__class__.__name__, "\n\t".join(error_msgs)))
 
+        """
+        # logger.info('done!')
+        if len(missing_keys) > 0:
+            # logger.info(
+                "Weights of {} not initialized from pretrained model: {}".
+                format(model.__class__.__name__, missing_keys))
+        if len(unexpected_keys) > 0:
+            # logger.info(
+                "Weights from pretrained model not used in {}: {}".format(
+                    model.__class__.__name__, unexpected_keys))
+        if len(error_msgs) > 0:
+            raise RuntimeError(
+                'Error(s) in loading state_dict for {}:\n\t{}'.format(
+                    model.__class__.__name__, "\n\t".join(error_msgs)))
+        """
         return model
 
 
@@ -448,10 +452,11 @@ class BertModel(BertPreTrainedModel):
 
         embedding_output = self.embeddings(input_ids, token_type_ids)
         encoded_layers, attention_scores, value_scores, context_scores, query_scores, key_scores = self.encoder(
-            embedding_output, extended_attention_mask)
+             embedding_output, extended_attention_mask)
 
         pooled_output = self.pooler(encoded_layers)
         return encoded_layers, attention_scores, pooled_output, value_scores, context_scores, query_scores, key_scores
+
 
 
 class BertForSequenceClassification(BertPreTrainedModel):
@@ -478,7 +483,7 @@ class BertForSequenceClassification(BertPreTrainedModel):
         # import pdb
         # pdb.set_trace()
         encoded_layers, attention_scores, pooled_output, value_scores, context_scores, query_scores, key_scores = self.bert(
-            input_ids, token_type_ids, attention_mask)
+             input_ids, token_type_ids, attention_mask)
         pooled_output = self.dropout(pooled_output)  # tinybert 是 torch.relu()
         logits = self.classifier(pooled_output)
 
@@ -492,7 +497,7 @@ class BertForSequenceClassification(BertPreTrainedModel):
             #     for s_id, encoded_layer in enumerate(encoded_layers):
             #         tmp.append(self.fit_dense(encoded_layer))
             #     encoded_layers = tmp
-            return logits, attention_scores, encoded_layers, value_scores, context_scores, query_scores, key_scores  # student_logits, student_atts, student_reps, student_value_atts
+            return logits, attention_scores, encoded_layers, value_scores, context_scores, query_scores, key_scores
 
 
 class BertForQuestionAnswering(BertPreTrainedModel):

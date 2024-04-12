@@ -220,7 +220,7 @@ def get_from_cache(url, cache_dir=None):
         # Download to temporary file, then copy to cache dir once finished.
         # Otherwise you get corrupt cache entries if the download gets interrupted.
         with tempfile.NamedTemporaryFile() as temp_file:
-            logger.info("%s not found in cache, downloading to %s", url, temp_file.name)
+            # logger.info("%s not found in cache, downloading to %s", url, temp_file.name)
 
             # GET file object
             if url.startswith("s3://"):
@@ -233,11 +233,11 @@ def get_from_cache(url, cache_dir=None):
             # shutil.copyfileobj() starts at the current position, so go to the start
             temp_file.seek(0)
 
-            logger.info("copying %s to cache at %s", temp_file.name, cache_path)
+            # logger.info("copying %s to cache at %s", temp_file.name, cache_path)
             with open(cache_path, 'wb') as cache_file:
                 shutil.copyfileobj(temp_file, cache_file)
 
-            logger.info("creating metadata file for %s", cache_path)
+            # logger.info("creating metadata file for %s", cache_path)
             meta = {'url': url, 'etag': etag}
             meta_path = cache_path + '.json'
             with open(meta_path, 'w') as meta_file:
@@ -246,7 +246,7 @@ def get_from_cache(url, cache_dir=None):
                     output_string = unicode(output_string, 'utf-8')  # The beauty of python 2
                 meta_file.write(output_string)
 
-            logger.info("removing temp file %s", temp_file.name)
+            # logger.info("removing temp file %s", temp_file.name)
 
     return cache_path
 
